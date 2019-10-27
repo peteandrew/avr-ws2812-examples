@@ -18,7 +18,7 @@ $(PROJECT).hex: $(PROJECT).elf
 	$(OBJCOPY) -R .eeprom -O ihex $(PROJECT).elf $(PROJECT).hex 
 
 $(PROJECT).elf: $(PROJECT).c output_grb.o
-	$(CC) $(CFLAGS) $(PROJECT).c output_grb.o -o $(PROJECT).elf
+	$(CC) $(CFLAGS) $(PROJECT).c fast_hsv2rgb_32bit.c output_grb.o -o $(PROJECT).elf
 
 output_grb.o: output_grb.S
 	$(CC) $(CFLAGS) -c output_grb.S
