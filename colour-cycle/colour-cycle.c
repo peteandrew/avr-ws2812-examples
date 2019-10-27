@@ -1,29 +1,30 @@
 //
-// Based on code from https://www.embeddedrelated.com/showarticle/528.php
+// WS2812 driving code from https://www.embeddedrelated.com/showarticle/528.php
+// HSV to RGB conversion code from http://www.vagrearg.org/content/hsvrgb
 // 8MHz internal osc
 //
 
 #include <avr/io.h>
 #include <util/delay.h>
-#include <stdint.h>
 #include <string.h>
-#include <avr/pgmspace.h>
+
+#include "fast_hsv2rgb.h"
 
 #define NUM_WS2812        1
 #define NUM_LEDS          (NUM_WS2812*3)
 
 typedef struct RgbColor
 {
-    unsigned char r;
-    unsigned char g;
-    unsigned char b;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
 } RgbColor;
 
 typedef struct HsvColor
 {
-    unsigned char h;
-    unsigned char s;
-    unsigned char v;
+    uint16_t h;
+    uint8_t s;
+    uint8_t v;
 } HsvColor;
 
 // declaration of our ASM function
@@ -37,60 +38,14 @@ void set_color(uint8_t * p_buf, uint8_t led, uint8_t r, uint8_t g, uint8_t b)
   p_buf[index] = b;  
 }
 
-// Code from https://stackoverflow.com/a/14733008
-RgbColor HsvToRgb(HsvColor hsv)
-{
-  RgbColor rgb;
-  unsigned char region, remainder, p, q, t;
-
-  if (hsv.s == 0)
-  {
-    rgb.r = hsv.v;
-    rgb.g = hsv.v;
-    rgb.b = hsv.v;
-    return rgb;
-  }
-
-  region = hsv.h / 43;
-  remainder = (hsv.h - (region * 43)) * 6; 
-
-  p = (hsv.v * (255 - hsv.s)) >> 8;
-  q = (hsv.v * (255 - ((hsv.s * remainder) >> 8))) >> 8;
-  t = (hsv.v * (255 - ((hsv.s * (255 - remainder)) >> 8))) >> 8;
-
-  switch (region)
-  {
-    case 0:
-      rgb.r = hsv.v; rgb.g = t; rgb.b = p;
-      break;
-    case 1:
-      rgb.r = q; rgb.g = hsv.v; rgb.b = p;
-      break;
-    case 2:
-      rgb.r = p; rgb.g = hsv.v; rgb.b = t;
-      break;
-    case 3:
-      rgb.r = p; rgb.g = q; rgb.b = hsv.v;
-      break;
-    case 4:
-      rgb.r = t; rgb.g = p; rgb.b = hsv.v;
-      break;
-    default:
-      rgb.r = hsv.v; rgb.g = p; rgb.b = q;
-      break;
-  }
-
-  return rgb;
-}
-
 int main(void)
 {
   uint8_t buf[NUM_LEDS];
 
   HsvColor hsv;
-  hsv.h = 0;
-  hsv.s = 255;
-  hsv.v = 150;
+  hsv.h = HSV_HUE_MIN;
+  hsv.s = HSV_SAT_MAX;
+  hsv.v = 60;
 
   RgbColor rgb;
 
@@ -102,7 +57,11 @@ int main(void)
    
     memset(buf, 0, sizeof(buf));
 
-    rgb = HsvToRgb(hsv);
+    hsv.h += 5;
+    if (hsv.h > HSV_HUE_MAX)
+        hsv.h -= HSV_HUE_MAX;
+
+    fast_hsv2rgb_32bit(hsv.h, hsv.s, hsv.v, &rgb.r, &rgb.g, &rgb.b);
 
     set_color(
       buf,
@@ -112,8 +71,6 @@ int main(void)
       rgb.b
     );
 
-    hsv.h++;
-
-    _delay_ms(150);
+    _delay_ms(10);
   }
 }
